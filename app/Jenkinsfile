@@ -8,23 +8,38 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/Coletinn/hello-flask.git'
+                git branch: 'main', url: 'https://github.com/Coletinn/hello-flask.git'
             }
         }
         stage('Set Up Python Virtual Environment') {
             steps {
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate'
+                sh '''
+                    python3 -m venv venv
+                    echo "Virtual environment created"
+                '''
             }
         }
         stage('Install Dependencies') {
             steps {
-                sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh '''
+                    venv/bin/pip install --upgrade pip
+                    venv/bin/pip install -r requirements.txt
+                '''
             }
         }
         stage('Run Flask App') {
             steps {
-                sh '. venv/bin/activate && python app.py'
+                sh '''
+                    nohup venv/bin/python app.py > flask.log 2>&1 &
+                    echo "Flask app started successfully"
+                '''
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                sh 'cat flask.log || echo "No logs found"'
             }
         }
     }
