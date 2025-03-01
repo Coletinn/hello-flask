@@ -1,34 +1,30 @@
 pipeline {
     agent any
+
+    environment {
+        VENV_DIR = 'venv'
+    }
+
     stages {
         stage('Clone Repository') {
             steps {
-                // Clone the Git repository
-                checkout scm
+                git 'https://github.com/Coletinn/hello-flask.git'
             }
         }
-        stage('Build Docker Image') {
+        stage('Set Up Python Virtual Environment') {
             steps {
-                script {
-                    // Build Docker image for the Flask app
-                    sh 'docker build -t flask-jenkins-docker ./app'
-                }
+                sh 'python3 -m venv venv'
+                sh '. venv/bin/activate'
             }
         }
-        stage('Run Tests') {
+        stage('Install Dependencies') {
             steps {
-                script {
-                    // Optionally run tests (none here, but placeholder for unit tests)
-                    echo "No tests to run in this sample."
-                }
+                sh '. venv/bin/activate && pip install -r requirements.txt'
             }
         }
-        stage('Run Container') {
+        stage('Run Flask App') {
             steps {
-                script {
-                    // Run the Flask app container
-                    sh 'docker run -d -p 5000:5000 flask-jenkins-docker'
-                }
+                sh '. venv/bin/activate && python app.py'
             }
         }
     }
