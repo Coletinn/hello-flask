@@ -1,46 +1,35 @@
 pipeline {
     agent any
 
-    environment {
-        VENV_DIR = 'venv'
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build -t hello-flask-app .
+                '''
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                sh '''
+                    docker run -d -p 5000:5000 --name hello-flask-app hello-flask-app
+                '''
+                echo 'Aplicação Flask rodando em http://localhost:5000'
+            }
+        }
     }
 
-    stages {
-        stage('Clone Repository') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Coletinn/hello-flask.git'
-            }
-        }
-        stage('Set Up Python Virtual Environment') {
-            steps {
-                sh '''
-                    python3 -m venv venv
-                    echo "Virtual environment created"
-                '''
-            }
-        }
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                    venv/bin/pip install --upgrade pip
-                    venv/bin/pip install -r requirements.txt
-                '''
-            }
-        }
-        stage('Run Flask App') {
-            steps {
-                sh '''
-                    nohup venv/bin/python app.py > flask.log 2>&1 &
-                    echo "Flask app started successfully"
-                '''
-            }
-        }
-    }
     post {
         always {
-            script {
-                sh 'cat flask.log || echo "No logs found"'
-            }
+            echo 'Encerrando container...'
+            sh 'docker rm -f hello-flask-app || true'
         }
     }
 }
