@@ -24,6 +24,12 @@ pipeline {
                 echo 'Aplicação Flask rodando em http://localhost:5000'
             }
         }
+
+        stage('Health Check') {
+            steps {
+                sh 'sleep 3 && curl -s http://localhost:5000 | grep "Hello" || echo "Falha no endpoint"'
+            }
+        }
     }
 
     post {
