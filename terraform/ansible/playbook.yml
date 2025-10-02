@@ -1,7 +1,11 @@
 ---
-- name: Deploy Flask Application
+- name: Deploy Flask Application with Docker
   hosts: all
   become: yes
+  
+  vars:
+    app_dir: /home/ubuntu/hello-flask
+    app_user: ubuntu
   
   tasks:
     - name: Update apt cache
@@ -9,94 +13,89 @@
         update_cache: yes
         cache_valid_time: 3600
     
-    - name: Install system dependencies
+    - name: Install required packages
       apt:
         name:
-          - python3-pip
-          - python3-venv
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
           - git
-          - nginx
         state: present
     
-    - name: Clone Flask repository
-      git:
-        repo: "{{ github_repo }}"
-        dest: "{{ app_dir }}"
-        version: main
-        force: yes
-      become_user: "{{ app_user }}"
-      environment:
-        GIT_TERMINAL_PROMPT: 0
-      when: github_token == ""
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
     
-    - name: Clone Flask repository (with token)
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+    
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+    
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    - name: Reset ssh connection to allow user changes
+      meta: reset_connection
+    
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: Clone Flask repository
       git:
         repo: "https://{{ github_token }}@github.com/Coletinn/hello-flask.git"
         dest: "{{ app_dir }}"
         version: main
         force: yes
       become_user: "{{ app_user }}"
-      when: github_token != ""
     
-    - name: Create Python virtual environment
-      pip:
-        requirements: "{{ app_dir }}/requirements.txt"
-        virtualenv: "{{ venv_dir }}"
-        virtualenv_command: "{{ python_version }} -m venv"
+    - name: Stop existing containers
+      command: docker compose down
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: "{{ app_user }}"
+      ignore_errors: yes
+    
+    - name: Build and start containers
+      command: docker compose up -d --build
+      args:
+        chdir: "{{ app_dir }}"
       become_user: "{{ app_user }}"
     
-    - name: Create systemd service file
-      template:
-        src: templates/flask-app.service.j2
-        dest: /etc/systemd/system/flask-app.service
-        mode: '0644'
-      notify:
-        - reload systemd
-        - restart flask-app
+    - name: Wait for application to be ready
+      uri:
+        url: http://localhost:5000
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 5
+      delay: 5
     
-    - name: Create Nginx configuration
-      template:
-        src: templates/nginx-flask.conf.j2
-        dest: /etc/nginx/sites-available/flask-app
-        mode: '0644'
-      notify: restart nginx
+    - name: Show running containers
+      command: docker compose ps
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: "{{ app_user }}"
+      register: containers
     
-    - name: Enable Nginx site
-      file:
-        src: /etc/nginx/sites-available/flask-app
-        dest: /etc/nginx/sites-enabled/flask-app
-        state: link
-      notify: restart nginx
-    
-    - name: Remove default Nginx site
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-      notify: restart nginx
-    
-    - name: Ensure flask-app service is enabled and started
-      systemd:
-        name: flask-app
-        enabled: yes
-        state: started
-    
-    - name: Ensure nginx is enabled and started
-      systemd:
-        name: nginx
-        enabled: yes
-        state: started
-  
-  handlers:
-    - name: reload systemd
-      systemd:
-        daemon_reload: yes
-    
-    - name: restart flask-app
-      systemd:
-        name: flask-app
-        state: restarted
-    
-    - name: restart nginx
-      systemd:
-        name: nginx
-        state: restarted
+    - name: Display container status
+      debug:
+        var: containers.stdout_lines

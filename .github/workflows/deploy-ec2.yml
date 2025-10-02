@@ -1,4 +1,4 @@
-name: Deploy to AWS EC2
+name: Deploy Docker Flask App to AWS EC2
 
 on:
   push:
@@ -18,8 +18,16 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           cd /home/ubuntu/hello-flask
+          
           git pull origin main
-          source venv/bin/activate
-          pip install -r requirements.txt
-          sudo systemctl restart flask-app
+          
+          docker compose down
+          docker compose up -d --build
+          
+          sleep 5
+          
+          docker compose ps
+          
+          docker compose logs --tail=20
+          
           echo "Deploy concluído em $(date)"
