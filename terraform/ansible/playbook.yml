@@ -1,0 +1,102 @@
+---
+- name: Deploy Flask Application
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - git
+          - nginx
+        state: present
+    
+    - name: Clone Flask repository
+      git:
+        repo: "{{ github_repo }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: "{{ app_user }}"
+      environment:
+        GIT_TERMINAL_PROMPT: 0
+      when: github_token == ""
+    
+    - name: Clone Flask repository (with token)
+      git:
+        repo: "https://{{ github_token }}@github.com/Coletinn/hello-flask.git"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: "{{ app_user }}"
+      when: github_token != ""
+    
+    - name: Create Python virtual environment
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+        virtualenv_command: "{{ python_version }} -m venv"
+      become_user: "{{ app_user }}"
+    
+    - name: Create systemd service file
+      template:
+        src: templates/flask-app.service.j2
+        dest: /etc/systemd/system/flask-app.service
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart flask-app
+    
+    - name: Create Nginx configuration
+      template:
+        src: templates/nginx-flask.conf.j2
+        dest: /etc/nginx/sites-available/flask-app
+        mode: '0644'
+      notify: restart nginx
+    
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/flask-app
+        dest: /etc/nginx/sites-enabled/flask-app
+        state: link
+      notify: restart nginx
+    
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: restart nginx
+    
+    - name: Ensure flask-app service is enabled and started
+      systemd:
+        name: flask-app
+        enabled: yes
+        state: started
+    
+    - name: Ensure nginx is enabled and started
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+  
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+    
+    - name: restart flask-app
+      systemd:
+        name: flask-app
+        state: restarted
+    
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

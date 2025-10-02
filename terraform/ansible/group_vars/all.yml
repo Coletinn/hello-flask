@@ -1,0 +1,13 @@
+app_name: hello-flask
+app_user: ubuntu
+app_dir: /home/ubuntu/hello-flask
+github_repo: https://github.com/Coletinn/hello-flask.git
+github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+
+# Python
+python_version: python3
+venv_dir: "{{ app_dir }}/venv"
+
+# Nginx
+nginx_port: 80
+app_port: 5000

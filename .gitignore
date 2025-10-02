@@ -57,3 +57,7 @@ terraform.rc
 # Chaves SSH
 *.pem
 *.key
+
+# Ansible secrets
+.env
+.vault_pass

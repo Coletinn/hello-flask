@@ -1,0 +1,14 @@
+[Unit]
+Description=Flask Hello Application
+After=network.target
+
+[Service]
+User={{ app_user }}
+WorkingDirectory={{ app_dir }}
+Environment="PATH={{ venv_dir }}/bin"
+ExecStart={{ venv_dir }}/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
