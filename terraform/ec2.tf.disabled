@@ -112,31 +112,31 @@ resource "aws_security_group" "ec2_sg" {
   }
 }
 
-resource "aws_instance" "app_server" {
-  ami           = "ami-0866a3c8686eaeeba"
-  instance_type = "t2.micro"
+# resource "aws_instance" "app_server" {
+#   ami           = "ami-0866a3c8686eaeeba"
+#   instance_type = "t2.micro"
   
-  subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  key_name               = "aws-keypair"
+#   subnet_id              = aws_subnet.public.id
+#   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+#   key_name               = "aws-keypair"
   
-  user_data = <<-EOF
-              #!/bin/bash
-              apt update -y
-              apt install -y python3 python3-pip
-              EOF
+#   user_data = <<-EOF
+#               #!/bin/bash
+#               apt update -y
+#               apt install -y python3 python3-pip
+#               EOF
 
-  tags = {
-    Name        = "flask-app-server"
-    Environment = "production"
-    ManagedBy   = "terraform"
-  }
+#   tags = {
+#     Name        = "flask-app-server"
+#     Environment = "production"
+#     ManagedBy   = "terraform"
+#   }
 
-  root_block_device {
-    volume_size = 8
-    volume_type = "gp3"
-  }
-}
+#   root_block_device {
+#     volume_size = 8
+#     volume_type = "gp3"
+#   }
+# }
 
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tpl", {
