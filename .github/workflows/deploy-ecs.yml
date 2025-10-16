@@ -1,0 +1,55 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Build and push Flask
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        docker build -t $ECR_REGISTRY/flask-app:latest .
+        docker push $ECR_REGISTRY/flask-app:latest
+    
+    - name: Build and push Nginx
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        docker build -t $ECR_REGISTRY/nginx-proxy:latest -f Dockerfile.nginx .
+        docker push $ECR_REGISTRY/nginx-proxy:latest
+    
+    - name: Force ECS deployment
+      run: |
+        aws ecs update-service \
+          --cluster flask-app-cluster \
+          --service flask-app-service \
+          --force-new-deployment \
+          --region us-east-1
+    
+    - name: Wait for deployment
+      run: |
+        aws ecs wait services-stable \
+          --cluster flask-app-cluster \
+          --services flask-app-service \
+          --region us-east-1
+          

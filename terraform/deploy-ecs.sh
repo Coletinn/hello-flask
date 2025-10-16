@@ -54,7 +54,7 @@ echo -e "${YELLOW}Building Nginx...${NC}"
 docker build -t nginx-proxy:latest -f Dockerfile.nginx .
 docker tag nginx-proxy:latest $NGINX_REPO:latest
 docker push $NGINX_REPO:latest
-echo -e "${GREEN}✓ Nginx pushed${NC}"
+echo -e "${GREEN}Nginx pushed${NC}"
 
 cd terraform
 
